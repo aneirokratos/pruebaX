@@ -3,6 +3,6 @@ from fastapi import FastAPI
 app = FastAPI()
 
 
-@app.get("/inicio")
+@app.get("/")
 async def ruta_prueba():
     return "Hola"
