@@ -1,248 +1,360 @@
-from fastapi import FastAPI
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import pandas as pd
+from data import df
 from unidecode import unidecode
 import uvicorn
+from IPython.display import display
 from pandas import DataFrame
 import json
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from fastapi.openapi.utils import get_openapi
-from fastapi.exceptions import HTTPException
 
+
+# Instance api
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-df_peliculas = pd.read_csv('data_movies_fin.csv')
-df_peliculas['id'] = df_peliculas['id'].astype(int)
-df_creditos = pd.read_csv('creditos_fin.csv')
-df_unido = pd.merge(df_peliculas, df_creditos, on='id')
+templates = Jinja2Templates(directory="templates")
 
+@app.get("/", response_class=HTMLResponse)
+def welcome_page(request: Request):
+    return templates.TemplateResponse("welcome.html", {"request": request, "title": "Welcome to 🎬 Movies Recommendation System 🍿"})
 
-# ---------------------------------------------------
-@app.get("/cantidad_filmaciones_mes/{mes}", tags=['Consulta 1'])
-async def cantidad_filmaciones_mes_endpoint(mes: str):
-        # Convertir la columna "release_date" a tipo datetime si no está en ese formato
-    df_unido['release_date'] = pd.to_datetime(df_unido['release_date'])
-    # Filtrar los datos por el mes especificado en español
-    data_filtrado = df_unido[df_unido['release_date'].dt.month_name(
-        locale='es') == mes]
-    # Obtener la cantidad de registros que coinciden
-    cantidad = len(data_filtrado)
-    mensaje = f"La cantidad de películas estrenadas en el mes es {cantidad}"
-    return mensaje
+'''def welcome_page():
+    title = "Welcome to Movies Recommendation Project"
 
-    
-  
-
-# ----------------------------------------------------
-@app.get("/cantidad_filmaciones_dia/{dia}", tags=['Consulta 2'])
-async def cantidad_filmaciones_dia_endpoint(dia: str):
-    data_filtrado = df_unido[df_unido['release_date'].dt.day_name(
-        locale='es') == dia]
-    # Obtener la cantidad de registros que coinciden
-    cantidad = len(data_filtrado)
-    mensaje = f"La cantidad de películas estrenadas en el día es {cantidad}"
-    return {"mensaje":mensaje}
-
-# ----------------------------------------------------
-@app.get("/score_titulo/{titulo}", tags=['Consulta 3'])
-async def score_titulo_endpoint(title: str):
+    footer = """
+    <footer>
+        <p><h1>Created by Hugo Salazar</h1></p>
+        <p><a href="https://www.linkedin.com/in/hasalazars/">LinkedIn</a></p>
+        <p><a href="https://github.com/HugoSalazarS">GitHub</a></p>
+    </footer>
     """
-    Endpoint para obtener información de una filmación a partir de su título.
-    
-    Args:
-        titulo (str): Título de la filmación en formato de texto.
-    
-    Returns:
-        dict: Diccionario con el mensaje que contiene el título, año de estreno y score/popularidad de la filmación.
-              En caso de no encontrar la filmación, se devuelve un mensaje de error.
+
+    body = """
+    <h2>About the Project</h2>
+    <p>The Movies Recommendation Project is designed to provide movie recommendations based on various criteria. It offers the following functions:</p>
+    <ol>
+        <li>This function calculates the number of films released in a specific month. The month input should be provided in Spanish language. <a href="/cantidad_filmaciones_mes/enero" target="_blank">Click here</a> to try this function.</li>
+        <li>This function calculates the number of films released in a specific day of the week. The day of the week should be provided in Spanish language. <a href="/cantidad_filmaciones_dia/lunes" target="_blank">Click here</a> to try this function.</li>
+        <li>This function returns the title, the year released, and the score of the movie. If there is more than one movie with the same title, it returns all of them. <a href="/score_titulo/cinderella" target="_blank">Click here</a> to try this function.</li>
+        <li>This function returns the title, the total number of votes, and the average vote value. <a href="/votos_titulo/Toy Story" target="_blank">Click here</a> to try this function.</li>
+        <li>This function retrieves information about an actor, including the number of films they have participated in and the total return value. <a href="/get_actor/Tom Hanks" target="_blank">Click here</a> to try this function.</li>
+        <li>This function retrieves information about a director, including the number of films they have directed and the total return value. <a href="/get_director/Steven Spielberg" target="_blank">Click here</a> to try this function.</li>
+        <li><b>This function retrieves 5 recomended Movies based on the title given by the user. <a href="/recomendacion/Twelve Monkeys" target="_blank">Click here</a> to try this function. </li>
+    </ol>
     """
-    # Convertir el título de la filmación a minúsculas para realizar la comparación
-    titulo = titulo.lower()
 
-    # Extraer los DataFrames del archivo ZIP
-    datasets_df, _, _, _, _ = df_unido
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{title}</title>
+        <style>
+            table, th, td {{
+                border: 1px solid black;
+                border-collapse: collapse;
+                padding: 8px;
+                text-align: left;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>{title}</h1>
+        {body}
+        {footer}
+    </body>
+    </html>
+    """'''
 
-    # Filtrar el DataFrame para obtener la fila correspondiente al título de la filmación
-    filmacion = datasets_df[datasets_df['title'].str.lower() == titulo]
+meses = {
+        "enero": "January",
+        "febrero": "February",
+        "marzo": "March",
+        "abril": "April",
+        "mayo": "May",
+        "junio": "June",
+        "julio": "July",
+        "agosto": "August",
+        "septiembre": "September",
+        "octubre": "October",
+        "noviembre": "November",
+        "diciembre": "December"
+    }
 
-    if filmacion.empty:
-        return {"mensaje": f"No se encontró la filmación con el título: {titulo}"}
+# 1 This function calculates the number of films released in a specific month. The month input should be provided in Spanish language.
+@app.get("/cantidad_filmaciones_mes/{mes}")
+def cantidad_filmaciones_mes(mes: str):
+    # Convert month to Spanish
+    mes = mes.lower().strip()
 
-    # Obtener el título, año de estreno y score de la filmación
-    titulo_filmacion = filmacion['title'].iloc[0]
-    año_estreno = filmacion['release_year'].iloc[0]
-    score = round(filmacion['popularity'].iloc[0], 2)
+    # Verify if the month is in the dict
+    if mes in meses:
+        # Get the corresponding English month name
+        mes_en_ingles = meses[mes]
+        # Count the films with release dates containing the English month name
+        cantidad = len(df[df["release_date"].str.contains(mes_en_ingles, case=False)])
+    else:
+        # Return a message indicating that no films were released in the month
+        return {'mes': mes, 'cantidad': f"No se encontraron películas estrenadas en el mes de {mes}"}
 
-    mensaje = f"La película '{titulo_filmacion}' fue estrenada en el año {año_estreno} con un score/popularidad de {score}"
-    return {"mensaje": mensaje}
+    # respuesta = f"{cantidad} películas fueron estrenadas en el mes de {mes}"
 
-# ----------------------------------------------------
-@app.get("/votos_titulo/{titulo}", tags=['Consulta 4'])
-async def votos_valor_de_la_filmacion_endpoint(titulo: str):
+    # Return the month and the count of film releases
+    return {'mes': mes, 'cantidad': cantidad}
+
+
+
+@app.get("/view_films/{mes}")
+def view_films_mes(mes: str):
+    mes = mes.lower().strip()
+
+    if mes in meses:
+        mes_en_ingles = meses[mes]
+        films = df[df["release_date"].str.contains(mes_en_ingles, case=False)][["title", "release_year"]].sort_values(by="release_year")
+
+        if films.empty:
+            return f"No se encontraron películas estrenadas en el mes de {mes}"
+
+        table_html = films.to_html(index=False)
+
+        page_title = f"Películas estrenadas en el mes de {mes}"
+
+        complete_html = f"""
+        <html>
+        <head>
+            <title>{page_title}</title>
+        </head>
+        <body>
+            <h1>{page_title}</h1>
+            {table_html}
+        </body>
+        </html>
+        """
+
+        return HTMLResponse(content=complete_html, status_code=200)
+    else:
+        return f"No se reconoce el mes '{mes}'. Por favor, ingresa un mes válido en español."
+
+
+# 2 Calculate the number of films releasead in a specific day of the week. The day of the weew should be provided in Spanish Language.
+
+dias = {
+        "lunes": "Monday",
+        "martes": "Tuesday",
+        "miércoles": "Wednesday",
+        "jueves": "Thursday",
+        "viernes": "Friday",
+        "sábado": "Saturday",
+        "domingo": "Sunday"
+    }
+
+@app.get("/cantidad_filmaciones_dia/{dia}")
+def cantidad_filmaciones_dia(dia: str):
+    # Convert the day string to lowercase and remove whitespace
+    dia = dia.lower().strip()
+
+    if dia in dias: # Check if the day exists in the dias dictionary
+        dia_en_ingles = dias[dia] # Convert the day to English
+        films = df[df["release_day"].str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8').str.lower().str.contains(dia_en_ingles, case=False)]
+
+        if films.empty:
+            return {'dia': dia, 'cantidad': f"No se encontraron películas estrenadas en los días {dia}"}
+
+        # respuesta = f"{len(films)} películas fueron estrenadas en los días {dia}"
+
+        # Return the day and the count of film releases
+        return {'dia': dia, 'cantidad': len(films)} 
+    else:
+        # Return message for unrecognized day
+        return {'dia': dia, 'cantidad': f"No se reconoce el día '{dia}'. Por favor, ingresa un día de la semana válido en español."}
+
+
+@app.get("/view_films_day/{day}")
+def view_films_day(day: str):
+    day = day.lower().strip()  # Convert the day string to lowercase and remove whitespace
+
+    if day in dias:  # Check if the day exists in the dias dictionary
+        dia_en_ingles = dias[day]  # Convert the day to English
+        films = df[df["release_day"].str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8').str.lower().str.contains(dia_en_ingles, case=False)][["title", "release_year", "Director"]].sort_values(by="release_year")
+
+        if films.empty:
+            return f"No films were released on {day}"  # Return message for no films found
+    
+    table_html = films.to_html(index=False)  # Convert the films DataFrame to an HTML table
+
+    # Set the page title
+    page_title = f"Films Released on {day}"
+
+    # Embed the table in a complete HTML page
+    complete_html = f"""
+    <html>
+    <head>
+        <title>{page_title}</title>
+    </head>
+    <body>
+        <h1>{page_title}</h1>
+        {table_html}
+    </body>
+    </html>
     """
-    Endpoint para obtener información sobre los votos y valoraciones de una filmación a partir de su título.
+
+    return HTMLResponse(content=complete_html, status_code=200)
+
+
+
+# 3 Returns the title, the year released and the score of the movie. If there is more than one movie with the same title, returns all of them
+@app.get("/score_titulo/{film_title}")
+def score_titulo(film_title: str):
+    # Filter films based on the specified film title
+    films = df[df["title"].str.lower() == film_title.lower()]
+    # Check if films are found
+    if films.empty:
+        return {'titulo': film_title, 'anio': None, 'popularidad': "No se encontró la filmación especificada."}
+    # Sort films by release year in ascending order
+    ordered_films = films.sort_values(by="release_year")
+    # Initialize an empty list to store the response
+    respuesta = []
+    # Iterate over the ordered films
+    for index, row in ordered_films.iterrows():
+        # Extract the title, release year, and popularity score of each film
+        title = row["title"]
+        year_released = row["release_year"]
+        score = row["popularity"]
+        # Create a dictionary for the film and add it to the response list
+        respuesta.append({'titulo': title, 'anio': year_released, 'popularidad': score})
+
+    return respuesta
     
-    Args:
-        titulo (str): Título de la filmación en formato de texto.
+
+# 4 Returns the title, the total of votes and the vote average
+
+@app.get("/votos_titulo/{titulo}")
+def votos_titulo(titulo:str):
+    # Filter films based on the specified film title
+    filmaciones = df[df["title"].str.lower() == titulo.lower()]
+    # Check if films are found
+    if filmaciones.empty:
+        return "No se encontró la filmación especificada."
     
-    Returns:
-        dict: Diccionario con el mensaje que contiene el título, año de estreno, cantidad de votos y promedio de votaciones de la filmación.
-              En caso de no encontrar la filmación o no cumplir con la cantidad mínima de votos, se devuelve un mensaje de error.
-    """
-    # Convertir el título de la filmación a minúsculas para realizar la comparación
-    titulo = titulo.lower()
-
-    # Extraer los DataFrames del archivo ZIP
-    datasets_df, _, _, _, _ = df_unido
-
-    # Filtrar el DataFrame para obtener la fila correspondiente al título de la filmación
-    filmacion = datasets_df[datasets_df['title'].str.lower() == titulo]
-
-    if filmacion.empty:
-        return {"mensaje": f"No se encontró la filmación con el título: {titulo}"}
-
-    # Obtener el título, año de estreno, cantidad de votos y promedio de votaciones de la filmación
-    titulo_filmacion = filmacion['title'].iloc[0]
-    año_estreno = filmacion['release_year'].iloc[0]
-    cantidad_votos = round(filmacion['vote_count'].iloc[0])
-    promedio_votaciones = filmacion['vote_average'].iloc[0]
-
-    if cantidad_votos < 2000:
-        return {"mensaje": f"La filmación '{titulo_filmacion}' no cumple con la condición de tener al menos 2000 votos"}
-
-    mensaje = f"La película '{titulo_filmacion}' fue estrenada en el año {año_estreno}. La misma cuenta con un total de {cantidad_votos} valoraciones, con un promedio de {promedio_votaciones}"
-
-    return {"mensaje": mensaje}
-
-# ----------------------------------------------------
-@app.get("/get_actor/{nombre}", tags=['Consulta 5'])
-def nombre_actor(nombre: str):
-    """
-    Endpoint para obtener información sobre un actor a partir de su nombre.
+    # Initialize an empty list to store the responses
+    respuestas = []
     
-    Args:
-        nombre (str): Nombre del actor en formato de texto.
-    
-    Returns:
-        dict: Diccionario con el nombre del actor, la cantidad de películas en las que ha participado, el promedio de retorno monetario de las películas
-              y una lista de diccionarios con los títulos y retornos monetarios de las películas en las que ha participado.
-    """
-    datasets_df, _, cast_df, _, _ = df_unido
-
-    # Filtrar las filas en las que el actor aparece en la columna "cast"
-    actor_movies = cast_df[cast_df['cast'].str.contains(nombre, case=False)]
-    
-    # Verificar si se encontraron películas del actor
-    if actor_movies.empty:
-        return {"mensaje": f"No se encontró al actor {nombre} en la base de datos."}
+    # Iterate over the filtered films
+    for _, row in filmaciones.iterrows():
+        cantidad_votos = row["vote_count"]
         
-    # Obtener los ID de las películas en las que el actor ha participado
-    movie_ids = actor_movies['id'].tolist()
-    
-    # Filtrar el dataset "datasets_df" para obtener los nombres y retornos monetarios de las películas correspondientes
-    movies = datasets_df[datasets_df['id'].isin(movie_ids)]
-    
-    # Obtener la cantidad de películas en las que el actor ha participado
-    movie_count = len(movies)
-    
-    # Obtener el promedio de retorno monetario de las películas
-    average_revenue = round(movies['revenue'].mean(), 2)
+        if cantidad_votos < 2000:
+            continue  # Skip this movie if you don't meet the minimum number of votes
+        
+        # Extract the vote count, title, release year, and average vote of each film
+        titulo = row["title"]
+        anio = row["release_year"]
+        promedio_votos = row["vote_average"]
 
-    
-    # Crear una lista de diccionarios con los nombres y retornos monetarios de las películas
-    movie_info = []
-    for _, row in movies.iterrows():
-        movie_info.append({
-            "titulo": row['title'],
-            "retorno_monetario": row['revenue']
-        })
-    
-    return {
-        "nombre_actor": nombre,
-        "cantidad_peliculas": movie_count,
-        "promedio_retorno_monetario": average_revenue,
-        "peliculas": movie_info
-    }
+        # Create a dictionary for the film with its information
+        respuesta = {'titulo': titulo, 'anio': anio, 'voto_total': cantidad_votos, 'voto_promedio': promedio_votos}
+        respuestas.append(respuesta)
 
-# ----------------------------------------------------
-@app.get("/get_director/{nombre}", tags=['Consulta 6'])
-def nombre_director(nombre: str):
-    """
-    Endpoint para obtener información sobre un director a partir de su nombre.
+    # Check if no films meet the minimum vote count requirement
+    if not respuestas:
+        return "No se encontraron filmaciones que cumplan con la cantidad mínima de votos requerida (2000 votos)."
     
-    Args:
-        nombre (str): Nombre del director en formato de texto.
-    
-    Returns:
-        dict: Diccionario con el nombre del director, las ganancias totales de las películas que ha dirigido y una lista de diccionarios
-              con los ID, títulos, años, presupuestos, ingresos y relaciones de las películas dirigidas por el director.
-    """
-    datasets_df, crew_df, _, _, _ = df_unido
+    return respuesta
 
-    # Filtrar las filas en las que el director aparece en la columna "crew_name" y "crew_job" contiene "Director"
-    director_movies = crew_df[(crew_df['crew_name'].str.contains(nombre, case=False)) & (crew_df['crew_job'].str.contains("Director"))]
+
+# 5 Returns the total films and the average return
+@app.get("/get_actor/{actor_name}")
+def get_actor(actor_name):
+    # Filter films based on the specified actor name
+    actor_films = df[df["actor_name_funct"].str.contains(fr"\b{actor_name}\b", case=False, regex=True, na=False)]
     
-    # Verificar si se encontraron películas del director
+    # Check if films are found for the actor
+    if actor_films.empty:
+        return "The specified actor was not found."
+    
+    # Calculate the number of films for the actor
+    film_count = len(actor_films)
+    
+    # Calculate the total return of the actor's films
+    total_return = round(actor_films["return"].sum(),2)
+    
+    # Calculate the average return per film
+    average_return = round(total_return / film_count,2)
+    
+    # Return a dictionary containing the actor's name, the number of films, total return, and average return
+    return {'actor': actor_name, 'film_count': film_count, 'total_return': total_return, 'average_return': average_return}
+
+
+
+# 6 Returns the Director's information, how many films have been directed, and the total return value
+@app.get("/get_director/{director_name}")
+def get_director(director_name: str):
+    # Filter movies based on the specified director name
+    director_movies = df[df['Director'].str.contains(fr"\b{director_name}\b", case=False, regex=True, na=False)]
+
+    # Check if movies are found for the director
     if director_movies.empty:
-        return {"mensaje": f"No se encontró al director {nombre} en la base de datos."}
+        return "The specified director was not found."
+
+    # Calculate the number of movies for the director
+    film_count = len(director_movies)
+
+    # Calculate the total return of the director's movies
+    total_return = round(director_movies['return'].sum(), 2)
+
+    # Create a table of movies with selected columns and round the values to 2 decimal places
+    movies_table = round(director_movies[['title', 'release_year', 'return', 'budget', 'revenue']], 2)
+
     
-    # Obtener los ID de las películas en las que el director ha trabajado
-    movie_ids = director_movies['id'].tolist()
-    
-    # Filtrar el dataset "datasets_df" para obtener los nombres, años, presupuestos, ingresos y relación de las películas correspondientes
-    movies = datasets_df[datasets_df['id'].isin(movie_ids)]
-    
-    # Calcular las ganancias sumando todas las relaciones de las películas
-    ganancias = round(movies['return'].sum(), 2)
-    
-    # Crear una lista de diccionarios con los ID, nombres, años, presupuestos, ingresos y relación de las películas
-    movie_info = []
-    for _, row in movies.iterrows():
-        movie_info.append({
-            "id": row['id'],
-            "titulo": row['title'],
-            "anio": row['release_year'],
-            "presupuesto": row['budget'],
-            "ingresos": row['revenue'],
-            "relacion": row['return']
-        })
-    
-    return {
-        "nombre_director": nombre,
-        "ganancias": ganancias,
-        "peliculas": movie_info
-    }
+    return {'Director': director_name,
+            'retorno_total_director': total_return,
+            'total_peliculas': film_count,
+            'peliculas': movies_table.to_dict(orient='records')}
 
-# Endpoint para la recomendación de películas
-# ----------------------------------------------------
-@app.get("/recomendacion/{movie_title}", tags=['Machine Learning'])
-def recomendar_pelicula(movie_title: str):
-    """
-    Devuelve una lista de las 5 películas recomendadas basadas en una película dada.
+# Remove rows with missing or null values in relevant columns
+df1 = df.drop(columns=['budget', 'id', 'revenue', 'release_date', 'status', 'runtime', 'actor_name', 'genre', 'character', 'collection', 'status', 'tagline', 'vote_count', 'id_collection', 'genre', 'companies_id', 'companies_name', 'countrie_name', 'lang_name', 'release_year', 'return', 'character', 'lang_name'])
 
-    Args:
-        movie_title (str): El título de la película.
+# Function to transform the columns for the vectrizer
+def clean_column_values(df, column_name):
+    df[column_name] = df[column_name].astype(str).str.replace('[', '', regex=False)
+    df[column_name] = df[column_name].astype(str).str.replace(']', '', regex=False)
+    df[column_name] = df[column_name].astype(str).str.replace("'", '', regex=False)
+    df[column_name] = df[column_name].astype(str).str.replace(",", '', regex=False)
+    return df
 
-    Returns:
-        dict: Un diccionario con las películas recomendadas como una lista.
-    """
-
-    recommended_movies = recomendar_pelicula(movie_title)
-    return {"recommended_movies": recommended_movies.tolist()}
+clean_column_values(df1,'actor_id')
+clean_column_values(df1,'genre_id')
 
 
- 
+# Create a term frequency matrix using CountVectorizer for relevant columns
+vectorizer = CountVectorizer()
+term_matrix = vectorizer.fit_transform(df1['genre_id'] + ' ' + df1['actor_id'] + ' ' + df1['title'] + ' ' + df1['popularity'].astype(str) + ' ' + df1['vote_average'].astype(str))
 
+# Function to get movies similar to a given movie
+def obtener_peliculas_similares(titulo, n=5):
+    titulo = titulo.lower()
+    indice_pelicula = df1[df1['title'].str.lower() == titulo].index
+    if len(indice_pelicula) == 0:
+        return 'No se encontró la película, revisa si está bien escrita'
 
-# ----------------------------------------------------
-# Ejecutar la aplicación
+    indice_pelicula = indice_pelicula[0]
+    vector_pelicula = term_matrix[indice_pelicula]
+    similaridades = cosine_similarity(vector_pelicula, term_matrix)[0]
+    indices_similares = similaridades.argsort()[::-1][1:n+1]  # Exclude the given movie
+
+    # Sort the similar movies based on similarity score
+    indices_similares_sorted = sorted(indices_similares, key=lambda x: similaridades[x], reverse=True)
+    peliculas_similares = df1.iloc[indices_similares_sorted]['title'].tolist()
+    return peliculas_similares
+
+@app.get('/recomendacion/{titulo}')
+def recomendacion(titulo: str):
+    peliculas_recomendadas = obtener_peliculas_similares(titulo)
+    return {'lista recomendada': peliculas_recomendadas}
+
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
+    uvicorn.run(app, host="0.0.0.0", port=10000)
