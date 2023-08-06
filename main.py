@@ -1,56 +1,27 @@
+import pandas as pd
+import requests
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from starlette.responses import HTMLResponse
+
+ruta_archivo = 'https://drive.google.com/uc?id=1-XkhEhJjFk4UsLy_EaT3yUa0BXjAnErv'
+response = requests.get(ruta_archivo)
+with open('data.csv', 'wb') as file:
+    file.write(response.content)
+
+df = pd.read_csv('data.csv')
 
 app = FastAPI()
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 def welcome_page():
-    return """
-    <html>
-        <head>
-            <title>Proyecto individual</title>
-        </head>
-        <body>
-            <h1>Aplicación de películas de Carlos Aneiro Pérez</h1>
- <form action="/respuesta" method="post">
-                <label for="respuesta1">Respuesta 1:</label>
-                <input type="text" id="respuesta1" name="respuesta1"><br><br>
-                <input type="submit" value="Enviar">
-            </form>
-            
-            <form action="/respuesta2" method="post">
-                <label for="respuesta2">Respuesta 2:</label>
-                <input type="text" id="respuesta2" name="respuesta2"><br><br>
-                <input type="submit" value="Enviar">
-            </form>
-        </body>
-    </html>
-    """
+    return "Aplicación de películas de Carlos Aneiro Pérez"
 
-@app.post("/respuesta", response_class=HTMLResponse)
-def respuesta_page(respuesta1: str):
-    return f"""
-    <html>
-        <head>
-            <title>Respuestas</title>
-        </head>
-        <body>
-            <h1>Tu respuesta 1:</h1>
-            <p>Respuesta 1: {respuesta1}</p>
-        </body>
-    </html>
-    """
+@app.post("/Cantidad_filmaciones_mes")
+def cantidad_filmaciones_mes(mes):
+    df['release_date'] = pd.to_datetime(df['release_date'])
+    data_filtrado = df[df['release_date'].dt.month_name(locale='es') == mes]
+    cantidad = len(data_filtrado)
+    
+    return str(f"La cantidad de películas estrenadas en el mes es {cantidad}")
 
-@app.post("/respuesta2", response_class=HTMLResponse)
-def respuesta2_page(respuesta2: str):
-    return f"""
-    <html>
-        <head>
-            <title>Respuestas</title>
-        </head>
-        <body>
-            <h1>Tu respuesta 2:</h1>
-            <p>Respuesta 2: {respuesta2}</p>
-        </body>
-    </html>
-    """
+
