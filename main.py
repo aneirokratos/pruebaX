@@ -1,4 +1,5 @@
 import pandas as pd
+import requests
 from fastapi import FastAPI
 from starlette.responses import HTMLResponse
 
@@ -7,7 +8,7 @@ response = requests.get(ruta_archivo)
 with open('data.csv', 'wb') as file:
     file.write(response.content)
 
-df = pd.read_csv('data.csv')
+df = pd.read_csv('data.csv', parse_dates=['release_date'])
 
 app = FastAPI()
 
@@ -17,7 +18,6 @@ def welcome_page():
 
 @app.post("/Cantidad_filmaciones_mes")
 def cantidad_filmaciones_mes(mes):
-    df['release_date'] = pd.to_datetime(df['release_date'])
     data_filtrado = df[df['release_date'].dt.month_name(locale='es') == mes]
     cantidad = len(data_filtrado)
     
