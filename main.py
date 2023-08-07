@@ -26,4 +26,4 @@ def cantidad_filmaciones_dia(dia):
     data_filtrado = df[df['release_date'].dt.day_name(
         locale='es') == dia]
     cantidad_dia = len(data_filtrado)
-    return (f"La cantidad de películas estrenadas en el dìa es {cantidad_dia}")
+    return str(f"La cantidad de películas estrenadas en el dìa es {cantidad_dia}")
