@@ -3,12 +3,11 @@ import requests
 from fastapi import FastAPI
 from starlette.responses import HTMLResponse
 
-ruta_archivo = 'https://drive.google.com/uc?id=1-XkhEhJjFk4UsLy_EaT3yUa0BXjAnErv'
-response = requests.get(ruta_archivo)
-with open('data.csv', 'wb') as file:
-    file.write(response.content)
+import pandas as pd
 
-df = pd.read_csv('data.csv', parse_dates=['release_date'])
+ruta_archivo = 'https://drive.google.com/uc?id=1-XkhEhJjFk4UsLy_EaT3yUa0BXjAnErv'
+
+df = pd.read_csv(ruta_archivo, parse_dates=['release_date'])
 
 app = FastAPI()
 
