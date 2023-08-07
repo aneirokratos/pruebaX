@@ -12,9 +12,9 @@ app = FastAPI()
 
 @app.get("/")
 def welcome_page():
-    return "Aplicación de películas de Carlos Aneiro Pérez"
+    return ("API":"Aplicación de películas de Carlos Aneiro Pérez")
 
-@app.post("/Cantidad_filmaciones_mes")
+@app.get("/fimaciones/mes/{mes}")
 def cantidad_filmaciones_mes(mes):
     data_filtrado = df[df['release_date'].dt.month_name(locale='es') == mes]
     cantidad = len(data_filtrado)
