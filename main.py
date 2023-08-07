@@ -18,7 +18,12 @@ def welcome_page():
 def cantidad_filmaciones_mes(mes):
     data_filtrado = df[df['release_date'].dt.month_name(locale='es') == mes]
     cantidad = len(data_filtrado)
-    
     return str(f"La cantidad de películas estrenadas en el mes es {cantidad}")
 
 
+@app.post("/filmaciones/dia")
+def cantidad_filmaciones_dia(dia):
+    data_filtrado = df[df['release_date'].dt.day_name(
+        locale='es') == dia]
+    cantidad_dia = len(data_filtrado)
+    return (f"La cantidad de películas estrenadas en el dìa es {cantidad_dia}")
