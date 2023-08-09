@@ -1,7 +1,5 @@
 import pandas as pd
 from fastapi import FastAPI
-from starlette.responses import HTMLResponse
-import locale
 
 ruta_archivo = 'https://drive.google.com/uc?id=1-XkhEhJjFk4UsLy_EaT3yUa0BXjAnErv'
 
@@ -10,9 +8,6 @@ df['release_date'] = pd.to_datetime(df['release_date'])
 
 app = FastAPI(title='Proyecto Individual Henry Data science',
             description='Carlos Aneiro Pérez')
-
-# Establecer configuración regional al inicio de la aplicación
-locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 
 @app.get("/")
 def welcome_page():
