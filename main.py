@@ -22,12 +22,23 @@ def cantidad_filmaciones_mes(mes):
     return str(f"La cantidad de películas estrenadas en el mes es {cantidad}")
 
 
-@app.post("/filmaciones/dia")
+@app.get("/filmaciones/dia")
 def cantidad_filmaciones_dia(dia:str):
-    data_filtrado = df[df['release_date'].dt.day_name(
-        locale='es') == dia]
-    cantidad_dia = len(data_filtrado)
-    return str(f"La cantidad de películas estrenadas en el dìa es {cantidad_dia}")
+    days = {
+    'lunes': 'Monday',
+    'martes': 'Tuesday',
+    'miercoles': 'Wednesday',
+    'jueves': 'Thursday',
+    'viernes': 'Friday',
+    'sabado': 'Saturday',
+    'domingo': 'Sunday'}
+
+    day = days[dia.lower()]
+
+    lista_peliculas_day = df[df['release_date'].dt.day_name() == day].drop_duplicates(subset='id')
+    respuesta = lista_peliculas_day.shape[0]
+
+    return {'dia':dia, 'cantidad':respuesta}
 
 @app.get('/score_titulo/{titulo}')
 def score_titulo(titulo:str):
