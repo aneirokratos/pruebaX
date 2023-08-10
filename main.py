@@ -84,7 +84,7 @@ def votos_titulo(titulo_de_la_filmacion:str):
         else:
             return f"La película '{titulo_de_la_filmacion}' no cumple con la condición de tener al menos 2000 valoraciones."
 
-@app.get('actor/{actor}')
+@app.get('/actor/{actor}')
 def get_actor(nombre_actor):
     lista_peli_actor = df[df['name_cast'].astype(str).str.contains(
         nombre_actor, case=False, na=False)].drop_duplicates(subset='id')
@@ -95,3 +95,31 @@ def get_actor(nombre_actor):
         return f"El actor {nombre_actor} ha participado en {num_movies} películas, logrando un retorno total de {total_return} con un promedio de {average_return} por película."
     else:
         return f"No se encontraron datos del actor {nombre_actor}."
+    
+@app.get('/director/{director}')
+def get_director(nombre_director):
+
+    lista_peli_director = df[df['name_crew'].astype(str).str.contains(
+        nombre_director, case=False, na=False)].drop_duplicates(subset='title')
+    if len(lista_peli_director) > 0:
+        movies = lista_peli_director['title'].tolist()
+        release_years = lista_peli_director['release_year'].tolist()
+        returns = lista_peli_director['return'].tolist()
+        budgets = lista_peli_director['budget'].tolist()
+        revenues = lista_peli_director['revenue'].tolist()
+        return list(zip(movies, release_years, returns, budgets, revenues))
+    else:
+        return f"No records found for the director {nombre_director}."
+
+
+@app.get('/recomendaciones/{recomendaciones}')
+def obtener_recomendaciones_peliculas(title):
+    # Obtener el género de la película de entrada
+    genero_pelicula = df[df['title'] == title]['genero_nombre'].values[0]
+    # Filtrar las películas que coinciden con el género de la película de entrada
+    peliculas_coincidentes = df[df['genero_nombre'] == genero_pelicula]
+    # Excluir la película de entrada de las recomendaciones
+    peliculas_recomendadas = peliculas_coincidentes[peliculas_coincidentes['title'] != title]
+    # Obtener los primeros 5 títulos de películas recomendadas
+    recomendaciones = peliculas_recomendadas['title'].head(5).tolist()
+    return recomendaciones
