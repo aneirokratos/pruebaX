@@ -84,3 +84,14 @@ def votos_titulo(titulo_de_la_filmacion:str):
         else:
             return f"La película '{titulo_de_la_filmacion}' no cumple con la condición de tener al menos 2000 valoraciones."
 
+@app.get('actor/{actor}')
+def get_actor(nombre_actor):
+    lista_peli_actor = df[df['name_cast'].astype(str).str.contains(
+        nombre_actor, case=False, na=False)].drop_duplicates(subset='id')
+    if len(lista_peli_actor) > 0:
+        num_movies = len(lista_peli_actor)
+        total_return = lista_peli_actor['return'].sum()
+        average_return = round(total_return / num_movies, 2)
+        return f"El actor {nombre_actor} ha participado en {num_movies} películas, logrando un retorno total de {total_return} con un promedio de {average_return} por película."
+    else:
+        return f"No se encontraron datos del actor {nombre_actor}."
