@@ -69,3 +69,18 @@ def score_titulo(titulo:str):
    año = str(lista_peliculas_title['release_year'].iloc[0])
    score =str(lista_peliculas_title['popularity'].iloc[0])
    return {'titulo':titulo, 'año':año, 'popularidad':score}
+
+@app.get('/votos_titulo/{votos}')
+def votos_titulo(titulo_de_la_filmacion:str):
+    data = df
+    pelicula = data[data['title'] == titulo_de_la_filmacion]
+    if pelicula.empty:
+        return "No se encontró información para la película: " + titulo_de_la_filmacion
+    else:
+        votos = pelicula['vote_count'].values[0]
+        promedio = pelicula['vote_average'].values[0]
+        if votos >= 2000:
+            return f"La película '{titulo_de_la_filmacion}' fue estrenada en el año {pelicula['release_year'].values[0]}. La misma cuenta con un total de {votos} valoraciones, con un promedio de {promedio}"
+        else:
+            return f"La película '{titulo_de_la_filmacion}' no cumple con la condición de tener al menos 2000 valoraciones."
+
